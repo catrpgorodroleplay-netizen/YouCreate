@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CREATE - Международный Видео Хостинг</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Шапка -->
+    <header class="header">
+        <div class="header-left">
+            <div class="logo" onclick="showSection('home')">
+                <span class="logo-text">CREATE</span>
+                <small>Global Video Platform</small>
+            </div>
+        </div>
+        
+        <div class="header-center">
+            <div class="search-container">
+                <input type="text" class="search-input" id="searchInput" placeholder="Поиск видео...">
+                <button class="search-btn" onclick="searchVideos()">🔍</button>
+            </div>
+        </div>
+
+        <div class="header-right">
+            <button class="upload-btn" onclick="showUploadForm()">📹 Загрузить</button>
+            <button class="auth-btn" id="authBtn" onclick="toggleAuth()">👤 Войти</button>
+        </div>
+    </header>
+
+    <!-- Основной контент -->
+    <main class="main-content">
+        <!-- Главная страница -->
+        <section id="home" class="content-section active">
+            <h2>🌍 Видео со всего мира</h2>
+            <div class="videos-grid" id="videoGrid">
+                <div class="loading">Загрузка глобальных видео...</div>
+            </div>
+        </section>
+
+        <!-- Страница видео -->
+        <section id="videoPage" class="content-section">
+            <div class="video-layout">
+                <div class="video-player-section">
+                    <!-- Видеоплеер -->
+                    <div class="video-player-container">
+                        <video id="mainVideoPlayer" controls controlsList="nodownload">
+                            Ваш браузер не поддерживает видео тег.
+                        </video>
+                    </div>
+
+                    <!-- Информация о видео -->
+                    <div class="video-info">
+                        <h1 class="video-title" id="videoTitle">Название видео</h1>
+                        <div class="video-stats">
+                            <span class="views" id="videoViews">0 просмотров</span>
+                            <span class="dot">•</span>
+                            <span class="date" id="videoDate">сегодня</span>
+                            <span class="location" id="videoLocation">🌍 Global</span>
+                        </div>
+
+                        <!-- Действия с видео -->
+                        <div class="video-actions">
+                            <button class="action-btn like-btn" onclick="likeVideo()">
+                                👍 <span id="likeCount">0</span>
+                            </button>
+                            <button class="action-btn dislike-btn" onclick="dislikeVideo()">
+                                👎 <span id="dislikeCount">0</span>
+                            </button>
+                            <button class="action-btn share-btn" onclick="shareVideo()">
+                                📤 Поделиться
+                            </button>
+                            <button class="action-btn subscribe-btn" id="subscribeBtn" onclick="subscribeToChannel()">
+                                📋 Подписаться
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Информация о канале -->
+                    <div class="channel-info">
+                        <img id="channelAvatar" src="" alt="Аватар" class="channel-avatar">
+                        <div class="channel-details">
+                            <h3 class="channel-name" id="channelName">Имя канала</h3>
+                            <span class="subscribers" id="subscribersCount">0 подписчиков</span>
+                        </div>
+                    </div>
+
+                    <!-- Описание видео -->
+                    <div class="video-description">
+                        <div class="description-content">
+                            <p id="videoDescription">Описание видео...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Комментарии -->
+                <div class="comments-section">
+                    <h3 class="comments-title">
+                        💬 Комментарии <span id="commentsCount">0</span>
+                    </h3>
+                    
+                    <!-- Форма комментария -->
+                    <div class="add-comment">
+                        <img id="userAvatarInput" src="https://ui-avatars.com/api/?name=User&background=666&color=fff" 
+                             alt="Аватар" class="comment-avatar-input">
+                        <div class="comment-input-container">
+                            <textarea id="commentText" placeholder="Добавьте комментарий..." 
+                                      class="comment-textarea"></textarea>
+                            <div class="comment-actions">
+                                <button class="cancel-comment" onclick="clearComment()">Отмена</button>
+                                <button class="submit-comment" onclick="addComment()">Комментировать</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Список комментариев -->
+                    <div id="commentsList" class="comments-list">
+                        <div class="loading">Пока нет комментариев</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Модальные окна -->
+    <div id="authModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('authModal')">&times;</span>
+            <h2>Вход в CREATE</h2>
+            <form id="authForm">
+                <div class="form-group">
+                    <input type="text" id="username" placeholder="Имя пользователя" required>
+                </div>
+                <div class="form-group">
+                    <input type="email" id="email" placeholder="Email" required>
+                </div>
+                <div class="form-group">
+                    <input type="password" id="password" placeholder="Пароль" required>
+                </div>
+                <button type="submit" class="submit-btn">Войти</button>
+            </form>
+            <p class="auth-switch">
+                Нет аккаунта? <a href="#" onclick="toggleAuthMode()">Зарегистрироваться</a>
+            </p>
+        </div>
+    </div>
+
+    <div id="uploadModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('uploadModal')">&times;</span>
+            <h2>📹 Загрузить видео</h2>
+            <form id="uploadForm">
+                <div class="form-group">
+                    <input type="text" id="videoTitleInput" placeholder="Название видео" required>
+                </div>
+                <div class="form-group">
+                    <textarea id="videoDescriptionInput" placeholder="Описание видео"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>🎬 Видео файл (MP4, WebM, MOV)</label>
+                    <input type="file" id="videoFile" accept="video/*" required>
+                    <small>Максимальный размер: 500MB</small>
+                </div>
+                <div class="form-group">
+                    <label>🖼️ Превью (JPG, PNG)</label>
+                    <input type="file" id="thumbnailFile" accept="image/*">
+                    <small>Необязательно</small>
+                </div>
+                <button type="submit" class="submit-btn">🚀 Загрузить видео</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Подключаем файлы -->
+    <script src="database.js"></script>
+    <script src="script.js"></script>
+</body>
+  </html>
