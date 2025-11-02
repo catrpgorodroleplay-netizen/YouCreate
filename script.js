@@ -1,4 +1,4 @@
-// CREATE Video Hosting - ОСНОВНАЯ ЛОГИКА
+// CREATE Video Hosting - ОСНОВНАЯ ЛОГИКА С SUPABASE
 let currentUser = JSON.parse(localStorage.getItem('current_user')) || null;
 let currentVideo = null;
 let isLoginMode = true;
@@ -12,9 +12,9 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeApp();
 });
 
-function initializeApp() {
+async function initializeApp() {
     updateUI();
-    loadVideos();
+    await loadVideos();
     
     // Назначаем обработчики
     document.getElementById('authForm').addEventListener('submit', handleAuth);
@@ -24,14 +24,23 @@ function initializeApp() {
     updateCommentAvatar();
     
     console.log('🚀 CREATE Video Hosting инициализирован!');
-    console.log('📊 Статистика:', getGlobalStats());
 }
 
 // ==================== ВИДЕО СИСТЕМА ====================
 
-function loadVideos() {
-    const videos = globalDB.getVideos();
-    displayVideos(videos, document.getElementById('videoGrid'));
+async function loadVideos() {
+    try {
+        const videos = await globalDB.getVideos();
+        displayVideos(videos, document.getElementById('videoGrid'));
+    } catch (error) {
+        console.error('Ошибка загрузки видео:', error);
+        document.getElementById('videoGrid').innerHTML = `
+            <div class="loading">
+                <h3>❌ Ошибка загрузки</h3>
+                <p>Попробуйте обновить страницу</p>
+            </div>
+        `;
+    }
 }
 
 function displayVideos(videos, container) {
@@ -63,13 +72,13 @@ function displayVideos(videos, container) {
                      onerror="this.src='https://via.placeholder.com/350x200/333333/FFFFFF?text=CREATE'">
             </div>
             <div class="video-info">
-                <img src="${video.channelAvatar || 'https://ui-avatars.com/api/?name=' + video.channelName + '&background=666'}" 
-                     alt="${video.channelName}" class="channel-avatar-small">
+                <img src="${video.channel_avatar || 'https://ui-avatars.com/api/?name=' + video.channel_name + '&background=666'}" 
+                     alt="${video.channel_name}" class="channel-avatar-small">
                 <div class="video-details">
                     <div class="video-title">${video.title}</div>
                     <div class="video-meta">
-                        <div class="channel-name">${video.channelName}</div>
-                        <div>${formatViews(video.views)} просмотров • ${formatDate(video.uploadDate)}</div>
+                        <div class="channel-name">${video.channel_name}</div>
+                        <div>${formatViews(video.views)} просмотров • ${formatDate(video.upload_date)}</div>
                         <div style="font-size: 12px; color: #ff4444; margin-top: 2px;">${video.location}</div>
                     </div>
                 </div>
@@ -80,14 +89,14 @@ function displayVideos(videos, container) {
     });
 }
 
-function playVideo(video) {
+async function playVideo(video) {
     currentVideo = video;
     
     const viewKey = `${currentUser ? currentUser.id : 'anonymous'}_${video.id}`;
     
     // Увеличиваем просмотры только если пользователь еще не смотрел
     if (!viewedVideos[viewKey]) {
-        globalDB.updateVideoViews(video.id);
+        await globalDB.updateVideoViews(video.id);
         viewedVideos[viewKey] = true;
         localStorage.setItem('viewed_videos', JSON.stringify(viewedVideos));
     }
@@ -108,61 +117,66 @@ function playVideo(video) {
     const videoLocation = document.getElementById('videoLocation');
     
     if (videoPlayer) {
-        videoPlayer.src = video.videoUrl;
+        videoPlayer.src = video.video_url;
         videoPlayer.load();
     }
     if (videoTitle) videoTitle.textContent = video.title;
     if (videoViews) videoViews.textContent = formatViews(video.views) + ' просмотров';
-    if (videoDate) videoDate.textContent = formatDate(video.uploadDate);
+    if (videoDate) videoDate.textContent = formatDate(video.upload_date);
     if (videoDescription) videoDescription.textContent = video.description || 'Нет описания';
-    if (channelName) channelName.textContent = video.channelName;
-    if (channelAvatar) channelAvatar.src = video.channelAvatar || `https://ui-avatars.com/api/?name=${video.channelName}&background=666&color=fff`;
+    if (channelName) channelName.textContent = video.channel_name;
+    if (channelAvatar) channelAvatar.src = video.channel_avatar || `https://ui-avatars.com/api/?name=${video.channel_name}&background=666&color=fff`;
     if (subscribersCount) subscribersCount.textContent = formatViews(video.subscribers || 0) + ' подписчиков';
     if (likeCount) likeCount.textContent = video.likes || 0;
     if (dislikeCount) dislikeCount.textContent = video.dislikes || 0;
     if (videoLocation) videoLocation.textContent = video.location || '🌍 Global';
     
-    updateReactionButtons();
-    loadComments(video.id);
+    await updateReactionButtons();
+    await loadComments(video.id);
 }
 
 // ==================== КОММЕНТАРИИ ====================
 
-function loadComments(videoId) {
-    const comments = globalDB.getComments(videoId);
-    const commentsList = document.getElementById('commentsList');
-    const commentsCount = document.getElementById('commentsCount');
-    
-    if (!commentsList) return;
-    
-    if (commentsCount) commentsCount.textContent = comments.length;
-    commentsList.innerHTML = '';
-    
-    if (comments.length === 0) {
-        commentsList.innerHTML = '<div class="loading">Пока нет комментариев</div>';
-        return;
-    }
-    
-    comments.forEach(comment => {
-        const commentElement = document.createElement('div');
-        commentElement.className = 'comment';
-        commentElement.innerHTML = `
-            <img src="${comment.userAvatar || 'https://ui-avatars.com/api/?name=' + comment.username + '&background=666'}" 
-                 alt="${comment.username}" class="comment-avatar">
-            <div class="comment-content">
-                <div class="comment-header">
-                    <span class="comment-author">${comment.username}</span>
-                    <span class="comment-time">${formatDate(comment.timestamp)}</span>
-                    <span class="location" style="background: #444; padding: 2px 6px; border-radius: 8px; font-size: 10px;">${comment.location}</span>
+async function loadComments(videoId) {
+    try {
+        const comments = await globalDB.getComments(videoId);
+        const commentsList = document.getElementById('commentsList');
+        const commentsCount = document.getElementById('commentsCount');
+        
+        if (!commentsList) return;
+        
+        if (commentsCount) commentsCount.textContent = comments.length;
+        commentsList.innerHTML = '';
+        
+        if (comments.length === 0) {
+            commentsList.innerHTML = '<div class="loading">Пока нет комментариев</div>';
+            return;
+        }
+        
+        comments.forEach(comment => {
+            const commentElement = document.createElement('div');
+            commentElement.className = 'comment';
+            commentElement.innerHTML = `
+                <img src="${comment.user_avatar || 'https://ui-avatars.com/api/?name=' + comment.username + '&background=666'}" 
+                     alt="${comment.username}" class="comment-avatar">
+                <div class="comment-content">
+                    <div class="comment-header">
+                        <span class="comment-author">${comment.username}</span>
+                        <span class="comment-time">${formatDate(comment.timestamp)}</span>
+                        <span class="location" style="background: #444; padding: 2px 6px; border-radius: 8px; font-size: 10px;">${comment.location}</span>
+                    </div>
+                    <div class="comment-text">${comment.text}</div>
                 </div>
-                <div class="comment-text">${comment.text}</div>
-            </div>
-        `;
-        commentsList.appendChild(commentElement);
-    });
+            `;
+            commentsList.appendChild(commentElement);
+        });
+    } catch (error) {
+        console.error('Ошибка загрузки комментариев:', error);
+        document.getElementById('commentsList').innerHTML = '<div class="loading">Ошибка загрузки комментариев</div>';
+    }
 }
 
-function addComment() {
+async function addComment() {
     if (!currentUser) {
         alert('Войдите в аккаунт чтобы комментировать');
         toggleAuth();
@@ -179,16 +193,20 @@ function addComment() {
     
     if (!currentVideo) return;
     
-    globalDB.addComment(currentVideo.id, {
-        userId: currentUser.id,
-        username: currentUser.username,
-        userAvatar: currentUser.avatar,
-        text: text
-    });
-    
-    commentText.value = '';
-    loadComments(currentVideo.id);
-    alert('💬 Комментарий добавлен! Теперь его увидят все пользователи по всему миру!');
+    try {
+        await globalDB.addComment(currentVideo.id, {
+            userId: currentUser.id,
+            username: currentUser.username,
+            userAvatar: currentUser.avatar,
+            text: text
+        });
+        
+        commentText.value = '';
+        await loadComments(currentVideo.id);
+        alert('💬 Комментарий добавлен! Теперь его увидят все пользователи по всему миру!');
+    } catch (error) {
+        alert('Ошибка добавления комментария: ' + error.message);
+    }
 }
 
 function clearComment() {
@@ -205,7 +223,7 @@ function updateCommentAvatar() {
 
 // ==================== ЛАЙКИ И РЕАКЦИИ ====================
 
-function likeVideo() {
+async function likeVideo() {
     if (!currentUser) {
         toggleAuth();
         return;
@@ -213,20 +231,22 @@ function likeVideo() {
     
     if (!currentVideo) return;
     
-    const result = globalDB.addReaction(currentVideo.id, currentUser.id, 'like');
-    
-    if (result) {
+    try {
+        const result = await globalDB.addReaction(currentVideo.id, currentUser.id, 'like');
+        
         const likeCount = document.getElementById('likeCount');
         const dislikeCount = document.getElementById('dislikeCount');
         if (likeCount) likeCount.textContent = result.likes;
         if (dislikeCount) dislikeCount.textContent = result.dislikes;
         
-        updateReactionButtons();
+        await updateReactionButtons();
         alert('👍 Лайк добавлен!');
+    } catch (error) {
+        alert('Ошибка: ' + error.message);
     }
 }
 
-function dislikeVideo() {
+async function dislikeVideo() {
     if (!currentUser) {
         toggleAuth();
         return;
@@ -234,34 +254,40 @@ function dislikeVideo() {
     
     if (!currentVideo) return;
     
-    const result = globalDB.addReaction(currentVideo.id, currentUser.id, 'dislike');
-    
-    if (result) {
+    try {
+        const result = await globalDB.addReaction(currentVideo.id, currentUser.id, 'dislike');
+        
         const likeCount = document.getElementById('likeCount');
         const dislikeCount = document.getElementById('dislikeCount');
         if (likeCount) likeCount.textContent = result.likes;
         if (dislikeCount) dislikeCount.textContent = result.dislikes;
         
-        updateReactionButtons();
+        await updateReactionButtons();
         alert('👎 Дизлайк добавлен!');
+    } catch (error) {
+        alert('Ошибка: ' + error.message);
     }
 }
 
-function updateReactionButtons() {
+async function updateReactionButtons() {
     if (!currentUser || !currentVideo) return;
     
-    const reaction = globalDB.getUserReaction(currentVideo.id, currentUser.id);
-    
-    const likeBtn = document.querySelector('.like-btn');
-    const dislikeBtn = document.querySelector('.dislike-btn');
-    
-    if (likeBtn) likeBtn.classList.remove('active');
-    if (dislikeBtn) dislikeBtn.classList.remove('active');
-    
-    if (reaction === 'like' && likeBtn) {
-        likeBtn.classList.add('active');
-    } else if (reaction === 'dislike' && dislikeBtn) {
-        dislikeBtn.classList.add('active');
+    try {
+        const reaction = await globalDB.getUserReaction(currentVideo.id, currentUser.id);
+        
+        const likeBtn = document.querySelector('.like-btn');
+        const dislikeBtn = document.querySelector('.dislike-btn');
+        
+        if (likeBtn) likeBtn.classList.remove('active');
+        if (dislikeBtn) dislikeBtn.classList.remove('active');
+        
+        if (reaction === 'like' && likeBtn) {
+            likeBtn.classList.add('active');
+        } else if (reaction === 'dislike' && dislikeBtn) {
+            dislikeBtn.classList.add('active');
+        }
+    } catch (error) {
+        console.error('Ошибка обновления кнопок:', error);
     }
 }
 
@@ -277,18 +303,10 @@ function subscribeToChannel() {
     if (btn.textContent.includes('Подписаться')) {
         btn.textContent = '✅ Подписан';
         btn.style.background = '#3ea6ff';
-        if (currentVideo) {
-            currentVideo.subscribers = (currentVideo.subscribers || 0) + 1;
-            globalDB.saveData();
-        }
         alert('📋 Подписка оформлена!');
     } else {
         btn.textContent = 'Подписаться';
         btn.style.background = '#ff0000';
-        if (currentVideo && currentVideo.subscribers > 0) {
-            currentVideo.subscribers--;
-            globalDB.saveData();
-        }
         alert('❌ Подписка отменена!');
     }
 }
@@ -304,7 +322,7 @@ function showUploadForm() {
     if (uploadModal) uploadModal.style.display = 'block';
 }
 
-function handleUpload(e) {
+async function handleUpload(e) {
     if (e) e.preventDefault();
     
     if (!currentUser) {
@@ -344,25 +362,29 @@ function handleUpload(e) {
         thumbnailUrl = URL.createObjectURL(thumbnailFile);
     }
     
-    const newVideo = globalDB.addVideo({
-        title: title,
-        description: description,
-        videoUrl: videoUrl,
-        thumbnail: thumbnailUrl,
-        channelName: currentUser.username,
-        channelAvatar: currentUser.avatar,
-        userId: currentUser.id
-    });
-    
-    closeModal('uploadModal');
-    if (titleInput) titleInput.value = '';
-    if (descriptionInput) descriptionInput.value = '';
-    if (videoFileInput) videoFileInput.value = '';
-    if (thumbnailFileInput) thumbnailFileInput.value = '';
-    
-    loadVideos();
-    
-    alert(`✅ ВИДЕО ЗАГРУЖЕНО!\n\n"${title}"\n\nТеперь его увидят все пользователи по всему миру!\n\n🌎 Россия, США, Европа, Азия - все смогут смотреть ваше видео!`);
+    try {
+        await globalDB.addVideo({
+            title: title,
+            description: description,
+            videoUrl: videoUrl,
+            thumbnail: thumbnailUrl,
+            channelName: currentUser.username,
+            channelAvatar: currentUser.avatar,
+            userId: currentUser.id
+        });
+        
+        closeModal('uploadModal');
+        if (titleInput) titleInput.value = '';
+        if (descriptionInput) descriptionInput.value = '';
+        if (videoFileInput) videoFileInput.value = '';
+        if (thumbnailFileInput) thumbnailFileInput.value = '';
+        
+        await loadVideos();
+        
+        alert(`✅ ВИДЕО ЗАГРУЖЕНО В ГЛОБАЛЬНУЮ БАЗУ!\n\n"${title}"\n\n🌎 Теперь его увидят ВСЕ пользователи по всему миру!\n\n🇷🇺 Россия, 🇺🇸 США, 🇪🇺 Европа, 🇨🇳 Китай - ВСЕ!`);
+    } catch (error) {
+        alert('Ошибка загрузки видео: ' + error.message);
+    }
 }
 
 // ==================== АВТОРИЗАЦИЯ ====================
@@ -397,7 +419,7 @@ function updateAuthModal() {
     }
 }
 
-function handleAuth(e) {
+async function handleAuth(e) {
     if (e) e.preventDefault();
     
     const usernameInput = document.getElementById('username');
@@ -411,22 +433,26 @@ function handleAuth(e) {
     
     const username = usernameInput.value;
     const email = emailInput ? emailInput.value : `${username}@create.com`;
-    const password = passwordInput ? passwordInput.value : 'default123';
     
     const userData = {
+        id: Date.now().toString(),
         username: username,
         email: email,
         avatar: `https://ui-avatars.com/api/?name=${username}&background=ff0000&color=fff&size=128`
     };
     
-    currentUser = globalDB.addUser(userData);
-    localStorage.setItem('current_user', JSON.stringify(currentUser));
-    
-    closeModal('authModal');
-    updateUI();
-    updateCommentAvatar();
-    
-    alert(`🎉 Добро пожаловать, ${username}!\n\nТеперь вы можете загружать видео и комментировать!`);
+    try {
+        currentUser = await globalDB.addUser(userData);
+        localStorage.setItem('current_user', JSON.stringify(currentUser));
+        
+        closeModal('authModal');
+        updateUI();
+        updateCommentAvatar();
+        
+        alert(`🎉 Добро пожаловать в глобальное сообщество, ${username}!\n\nТеперь вы можете загружать видео и комментировать!`);
+    } catch (error) {
+        alert('Ошибка регистрации: ' + error.message);
+    }
 }
 
 // ==================== УТИЛИТЫ ====================
@@ -463,18 +489,22 @@ function closeModal(modalId) {
     if (modal) modal.style.display = 'none';
 }
 
-function searchVideos() {
+async function searchVideos() {
     const searchInput = document.getElementById('searchInput');
     if (!searchInput) return;
     
     const query = searchInput.value.trim();
     if (query.length === 0) {
-        loadVideos();
+        await loadVideos();
         return;
     }
     
-    const results = globalDB.searchVideos(query);
-    displayVideos(results, document.getElementById('videoGrid'));
+    try {
+        const results = await globalDB.searchVideos(query);
+        displayVideos(results, document.getElementById('videoGrid'));
+    } catch (error) {
+        console.error('Ошибка поиска:', error);
+    }
 }
 
 function shareVideo() {
